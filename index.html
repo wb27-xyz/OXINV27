@@ -1,0 +1,576 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice OXZAMEDIA - Professional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        /* Reset & Base Styles */
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; margin: 0; color: #0f172a; }
+        
+        /* Container untuk Invoice A4 */
+        .print-container { width: 210mm; min-height: 297mm; background: white; margin: 20px auto; position: relative; padding: 15mm; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; }
+        
+        /* Pengaturan Cetak */
+        @media print { 
+            body { background: white !important; margin: 0; padding: 0; } 
+            .no-print { display: none !important; } 
+            .print-container { margin: 0 !important; box-shadow: none !important; width: 210mm; height: 297mm; } 
+            @page { size: A4; margin: 0; } 
+        }
+        
+        /* Komponen Visual */
+        .logo-box { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px; }
+        .logo-box img { width: 100%; height: 100%; object-fit: contain; }
+        .signature-wrapper { position: absolute; bottom: 5px; left: 0; width: 140px; height: 70px; z-index: 5; pointer-events: none; }
+        .signature-wrapper img { width: 100%; height: 100%; object-fit: contain; opacity: 0.85; }
+        
+        /* Stempel Status */
+        .stamp-wrapper { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); z-index: 50; pointer-events: none; display: none; }
+        .stamp-box { display: inline-block; padding: 10px 25px; border: 6px double; font-weight: 900; font-size: 42px; text-transform: uppercase; line-height: 1; }
+        .is-lunas .stamp-wrapper-lunas { display: block; opacity: 0.12; }
+        .is-belum .stamp-wrapper-belum { display: block; opacity: 0.12; }
+        .stamp-lunas { color: #059669; border-color: #059669; }
+        .stamp-belum { color: #dc2626; border-color: #dc2626; }
+        
+        /* Tabel Pesanan */
+        .grid-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; table-layout: fixed; }
+        .grid-table th { background: #0f172a; color: white; text-align: center; padding: 10px 5px; text-transform: uppercase; border: 1px solid #0f172a; letter-spacing: 0.05em; }
+        .grid-table td { padding: 10px 12px; border: 1px solid #e2e8f0; vertical-align: middle; }
+        .grid-table tr:nth-child(even) { background-color: #f8fafc; }
+        
+        /* Footer Grid */
+        .footer-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 30px; margin-top: 30px; padding-top: 20px; }
+        
+        /* Teks Berjalan & Notifikasi Berita */
+        .marquee-container { width: 100%; overflow: hidden; background: rgba(15, 23, 42, 0.9); border-radius: 6px; padding: 8px 12px; margin-top: 10px; border-left: 4px solid #3b82f6; position: relative; }
+        .marquee-text { display: inline-block; white-space: nowrap; animation: marquee 200s linear infinite; font-size: 11px; font-weight: 600; color: #f8fafc; }
+        @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
+        
+        /* Badge Berita */
+        .news-tag { background: #ef4444; color: white; padding: 2px 8px; border-radius: 4px; font-size: 9px; margin-right: 10px; font-weight: 800; letter-spacing: 1px; }
+        .news-origin { color: #60a5fa; font-weight: 800; text-transform: uppercase; font-size: 9px; margin-right: 5px; }
+        .news-time { color: #94a3b8; font-size: 9px; font-weight: 400; margin-left: 8px; }
+        .urgent-text { color: #fbbf24 !important; font-weight: 800; text-transform: uppercase; animation: pulse-text 1.5s infinite; }
+        @keyframes pulse-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    </style>
+</head>
+<body id="main-body">
+
+    <!-- BAGIAN KONTROL / EDITOR (Tidak Ikut Dicetak) -->
+    <div class="no-print bg-slate-900 text-white p-6 sticky top-0 z-[1000] border-b border-blue-500/30 shadow-2xl">
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- Header Kontrol: Waktu, Jadwal Sholat, & Berita Asli -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 shadow-inner">
+                <div class="flex flex-col border-r border-slate-700 pr-4">
+                    <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Waktu & Tanggal</span>
+                    <div id="live-clock" class="text-2xl font-black text-white tracking-tighter leading-tight">00:00:00</div>
+                    <span id="live-date" class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">-- --- ----</span>
+                    
+                    <div class="mt-3 flex items-center gap-2 border-t border-slate-700 pt-2">
+                        <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                        <span id="news-status" class="text-[8px] font-bold text-slate-300 uppercase tracking-tight">Menghubungkan Berita...</span>
+                    </div>
+                </div>
+                <div class="md:col-span-3 pl-2">
+                    <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2 block flex items-center gap-2">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Jadwal Sholat - Kota Serang
+                    </span>
+                    <div id="prayer-times" class="grid grid-cols-5 gap-2 text-center mb-1">
+                        <!-- Jadwal sholat diisi via script -->
+                        <div class="bg-slate-700/30 h-8 rounded-lg animate-pulse"></div>
+                        <div class="bg-slate-700/30 h-8 rounded-lg animate-pulse"></div>
+                        <div class="bg-slate-700/30 h-8 rounded-lg animate-pulse"></div>
+                        <div class="bg-slate-700/30 h-8 rounded-lg animate-pulse"></div>
+                        <div class="bg-slate-700/30 h-8 rounded-lg animate-pulse"></div>
+                    </div>
+                    
+                    <!-- Fitur Running Text: Berita Asli Dunia & Dalam Negeri -->
+                    <div class="marquee-container" id="marquee-box" title="Klik untuk refresh berita" onclick="fetchAllLiveNews()">
+                        <div id="running-text-content" class="marquee-text">Sistem sedang memuat berita asli dari Google News... Harap tunggu sebentar.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Input Invoice Utama -->
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Custom Invoice ID</label>
+                    <input type="text" id="in-invoice-id" oninput="sync()" placeholder="Kosongkan utk auto" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Nama Pelanggan</label>
+                    <input type="text" id="in-nama" oninput="sync()" placeholder="Nama Toko/Pribadi" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">No. WhatsApp</label>
+                    <input type="text" id="in-telp" oninput="sync()" placeholder="08xxxx" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Graphic Designer</label>
+                    <input type="text" id="in-designer" oninput="sync()" value="WANDI BARAKA" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Diskon (%)</label>
+                    <input type="number" id="in-diskon" oninput="sync()" value="0" min="0" max="100" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Bayar / DP</label>
+                    <input type="number" id="in-bayar" oninput="sync()" value="0" class="w-full bg-slate-800 border border-slate-700 p-2 rounded text-sm outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <!-- Editor Rincian Pesanan -->
+            <div class="bg-slate-800 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">Rincian Pekerjaan</span>
+                    <button onclick="addItem()" class="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded text-[10px] font-bold uppercase">+ Tambah Baris</button>
+                </div>
+                <div id="editor-items" class="space-y-2 max-h-[150px] overflow-y-auto mb-4"></div>
+
+                <!-- Preview WhatsApp -->
+                <div class="border-t border-slate-700 pt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest">WhatsApp Billing Generator</span>
+                        <button onclick="copyWA()" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-2">
+                            <span>📋 SALIN TEKS WA</span>
+                        </button>
+                    </div>
+                    <textarea id="wa-preview" readonly class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-[11px] font-mono text-emerald-100 h-24 outline-none resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Tombol Aksi -->
+            <div class="mt-4 flex justify-end gap-3">
+                <button onclick="saveData()" class="bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-xl font-bold text-sm uppercase transition-all">SIMPAN FILE</button>
+                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 px-12 py-3 rounded-xl font-black text-sm uppercase shadow-lg transition-all">CETAK INVOICE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAMPILAN INVOICE UNTUK DICETAK -->
+    <div id="print-area" class="print-container">
+        <!-- Stempel Lunas/Belum Otomatis -->
+        <div class="stamp-wrapper stamp-wrapper-lunas"><div class="stamp-box stamp-lunas">LUNAS</div></div>
+        <div class="stamp-wrapper stamp-wrapper-belum"><div class="stamp-box stamp-belum">BELUM LUNAS</div></div>
+        
+        <!-- Header Invoice -->
+        <div class="flex justify-between items-start mb-6">
+            <div class="flex gap-5">
+                <div class="logo-box">
+                    <img src="logo.png" alt="Logo OXZAMEDIA" onerror="this.style.display='none'; document.getElementById('alt-logo').style.display='block'">
+                    <div id="alt-logo" class="hidden text-[10px] text-slate-400 font-bold text-center border border-dashed p-3 rounded-lg">LOGO</div>
+                </div>
+                <div>
+                    <h1 class="text-4xl font-black text-slate-900 tracking-tighter leading-none">OXZAMEDIA®</h1>
+                    <p class="text-[10px] font-extrabold text-blue-600 mt-1 uppercase tracking-[0.25em]">Advertising & Digital Printing</p>
+                    <div class="text-[9px] text-slate-500 mt-0 leading-relaxed font-medium">Jl. Abdul Hadi No. 23, Cipare, Kec. Serang, Kota Serang<br>Banten 42117 | WhatsApp: 0859 5926 7789</div>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="bg-slate-900 text-white px-5 py-3 rounded-xl inline-block">
+                    <h2 class="text-[9px] font-bold uppercase tracking-widest opacity-60">INVOICE ID</h2>
+                    <p class="text-lg font-black mt-0.5" id="out-no">#OXZA-000000</p>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest" id="out-tgl">--/--/----</p>
+            </div>
+        </div>
+
+        <!-- Info Pelanggan -->
+        <div class="grid grid-cols-2 gap-0 border-y border-slate-200 py-4 mb-4">
+            <div class="flex flex-col gap-2">
+                <div><span class="text-[8px] font-black text-slate-400 uppercase block">Nama Pelanggan / Instansi:</span><span id="out-nama" class="text-xs font-black text-slate-900 uppercase">---</span></div>
+                <div><span class="text-[8px] font-black text-slate-400 uppercase block">Kontak / No. WhatsApp:</span><span id="out-telp" class="text-xs font-bold text-slate-700 tracking-wider">---</span></div>
+            </div>
+            <div class="text-right border-l border-slate-100 pl-6 flex flex-col justify-center">
+                <span class="text-[8px] font-black text-slate-400 uppercase mb-1">Graphic Designer</span>
+                <span id="out-designer-top" class="text-sm font-black text-slate-900 uppercase">---</span>
+                <span class="text-[8px] font-bold text-blue-600 italic">Creative team of OXZAMEDIA</span>
+            </div>
+        </div>
+
+        <!-- Tabel Pesanan -->
+        <table class="grid-table">
+            <thead><tr><th style="width: 45px;">No</th><th>Deskripsi Pesanan</th><th style="width: 120px;">Harga Satuan</th><th style="width: 70px;">Qty</th><th style="width: 130px;">Total</th></tr></thead>
+            <tbody id="out-items"></tbody>
+        </table>
+
+        <!-- Footer Invoice & Totalan -->
+        <div class="footer-grid">
+            <div class="flex flex-col justify-between h-full">
+                <div>
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-16 h-16 border border-slate-100 p-1 rounded bg-white shrink-0"><img id="out-qr" src="" class="w-full h-full" alt="QR Code"></div>
+                        <div class="text-[8px] text-slate-500 leading-normal italic self-center"><b class="text-slate-900 block not-italic">Verifikasi Sistem:</b>Nota divalidasi secara digital. Scan QR untuk cek rincian tagihan asli pada sistem OXZAMEDIA.</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                        <h4 class="text-[9px] font-black text-slate-900 uppercase mb-1">KETENTUAN :</h4>
+                        <ul class="text-[8px] text-slate-600 space-y-0.5 font-medium list-none"><li>• Hasil cetak tidak dapat ditukar atau dikembalikan.</li><li>• DP Minimal 50%, Pelunasan dilakukan saat pengambilan.</li><li>• Barang tidak diambil >1 bulan dianggap hangus.</li></ul>
+                    </div>
+                </div>
+                <div class="mb-4 relative pt-4">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase mb-14">Hormat Kami,</p>
+                    <div class="signature-wrapper"><img src="tandatangan.png" alt="TTD" onerror="this.style.display='none'"></div>
+                    <div class="w-36 h-[1.5px] bg-slate-900"></div>
+                    <p class="text-[8px] font-bold text-blue-600 mt-1 uppercase tracking-wider">OXZAMEDIA OFFICIAL</p>
+                </div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col gap-3">
+                <div class="flex justify-between text-[11px] font-semibold text-slate-500"><span>Subtotal</span><span id="out-subtotal">Rp 0</span></div>
+                <div id="row-diskon" class="hidden flex justify-between text-[11px] font-bold text-red-500"><span id="label-diskon">Diskon (0%)</span><span id="out-diskon-val">- Rp 0</span></div>
+                <div class="border-t border-slate-200 my-1"></div>
+                <div class="flex justify-between items-center"><span class="text-[10px] font-black text-slate-900 uppercase">Grand Total</span><span id="out-total" class="text-xl font-black text-slate-900">Rp 0</span></div>
+                <div class="flex justify-between text-[11px] font-bold text-blue-600 bg-blue-50 px-3 py-2 rounded-lg"><span>Telah Dibayar (DP)</span><span id="out-bayar-val">Rp 0</span></div>
+                <div class="flex justify-between items-center bg-slate-900 text-white px-4 py-4 rounded-xl shadow-md whitespace-nowrap overflow-hidden"><span class="text-[10px] font-black uppercase tracking-tight mr-4 shrink-0">Sisa Tagihan</span><span id="out-sisa" class="text-lg font-black shrink-0">Rp 0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Persistence Container -->
+    <script id="saved-data-state" type="application/json"></script>
+
+    <script>
+        /**
+         * ==========================================
+         * VARIABEL GLOBAL & PENGATURAN AWAL
+         * ==========================================
+         */
+        let items = [{ name: '', qty: 0, price: 0 }];
+        let autoInvoiceNo = "";
+        let currentPrayerTimes = null;
+        let activeNews = []; // Menampung berita asli yang berhasil ditarik
+        let quoteCycle = 0;
+        let isUrgentPrayer = false;
+
+        /**
+         * ==========================================
+         * FITUR BERITA ASLI (LIVE NEWS FEED)
+         * ==========================================
+         * Mengambil data dari RSS Feed Google News via API RSS2JSON
+         */
+        async function fetchLiveNews(category = 'nasional') {
+            const newsStatus = document.getElementById('news-status');
+            const marqueeContent = document.getElementById('running-text-content');
+            
+            // Endpoint RSS Google News yang dikonversi ke JSON agar bisa dibaca JS
+            let rssUrl = category === 'nasional' 
+                ? 'https://news.google.com/rss/headlines/section/topic/NATION?hl=id&gl=ID&ceid=ID:id' // Berita Indonesia
+                : 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'; // Berita Dunia
+                
+            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    // Petakan hasil API ke format yang kita butuhkan
+                    const mapped = data.items.map(item => ({
+                        origin: category === 'nasional' ? 'Dunia & Nasional' : 'Global World',
+                        tag: 'BREAKING NEWS',
+                        title: item.title.split(' - ')[0], // Bersihkan nama portal berita di akhir judul
+                        time: new Date(item.pubDate).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})
+                    }));
+                    
+                    activeNews = [...activeNews, ...mapped];
+                    newsStatus.innerText = "BERITA AKTIF: " + activeNews.length + " ITEM";
+                    newsStatus.classList.replace('text-slate-300', 'text-emerald-400');
+                    return true;
+                }
+            } catch (error) {
+                console.error("Gagal menarik berita:", error);
+                return false;
+            }
+        }
+
+        /**
+         * Fungsi utama untuk menarik semua kategori berita asli
+         */
+        async function fetchAllLiveNews() {
+            activeNews = []; // Reset berita lama
+            await fetchLiveNews('nasional'); // Ambil berita Indonesia
+            await fetchLiveNews('internasional'); // Ambil berita Dunia
+            
+            // Jika berita gagal ditarik (offline atau API limit), gunakan cadangan lokal agar tidak kosong
+            if (activeNews.length === 0) {
+                activeNews = [
+                    { origin: 'Sistem', tag: 'OFFLINE', title: 'OXZAMEDIA: Pastikan koneksi internet aktif untuk memuat berita real-time.', time: '' }
+                ];
+            }
+            // Shuffle/Acak urutan berita
+            activeNews.sort(() => Math.random() - 0.5);
+            updateMarqueeDisplay();
+        }
+
+        /**
+         * Menampilkan berita yang telah ditarik ke dalam Running Text
+         */
+        function updateMarqueeDisplay() {
+            const content = document.getElementById('running-text-content');
+            if (isUrgentPrayer) return; // Jangan ganti jika sedang ada pengingat sholat
+
+            let fullText = "";
+            activeNews.forEach(news => {
+                fullText += `
+                    <span class="news-tag">${news.tag}</span> 
+                    <span class="news-origin">[${news.origin}]</span>
+                    <span class="news-item">${news.title}</span>
+                    <span class="news-time">(${news.time})</span>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                `;
+            });
+
+            // Tambahkan juga kutipan motivasi di sela-sela berita (ambil 5 kutipan acak)
+            for(let i=0; i<5; i++) {
+                const q = quotes[Math.floor(Math.random() * quotes.length)];
+                fullText += `<span class="news-tag" style="background:#059669">INFO</span> <span class="news-item">${q}</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`;
+            }
+
+            content.innerHTML = fullText;
+        }
+
+        /**
+         * ==========================================
+         * FITUR WAKTU & JADWAL SHOLAT
+         * ==========================================
+         */
+        function updateClock() {
+            const now = new Date();
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+            document.getElementById('live-date').innerText = now.toLocaleDateString('id-ID', dateOptions).toUpperCase();
+            checkPrayerStatus(now);
+        }
+
+        function checkPrayerStatus(now) {
+            if (!currentPrayerTimes) return;
+            const content = document.getElementById('running-text-content');
+            let urgentMessage = "";
+            const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+            for (const [name, time] of Object.entries(currentPrayerTimes)) {
+                const [h, m] = time.split(':').map(Number);
+                const prayerTotalMinutes = h * 60 + m;
+                const diff = prayerTotalMinutes - currentTotalMinutes;
+
+                if (diff > 0 && diff <= 10) {
+                    urgentMessage = `⚠️ MENDEKATI WAKTU SHOLAT ${name.toUpperCase()} (${diff} MENIT LAGI). MARI BERSIAP KE MASJID! ⚠️`;
+                    break;
+                }
+            }
+
+            if (urgentMessage) {
+                isUrgentPrayer = true;
+                content.innerHTML = `<span class="urgent-text">${urgentMessage}</span>`;
+                content.style.animationDuration = "12s"; 
+            } else if (isUrgentPrayer) {
+                isUrgentPrayer = false;
+                content.style.animationDuration = "35s";
+                updateMarqueeDisplay(); // Kembali ke berita
+            }
+        }
+
+        async function getPrayerTimes() {
+            const container = document.getElementById('prayer-times');
+            try {
+                const response = await fetch('https://api.aladhan.com/v1/timingsByCity?city=Serang&country=Indonesia&method=11');
+                const data = await response.json();
+                const times = data.data.timings;
+                currentPrayerTimes = { 'Subuh': times.Fajr, 'Dzuhur': times.Dhuhr, 'Ashar': times.Asr, 'Maghrib': times.Maghrib, 'Isya': times.Isha };
+                container.innerHTML = Object.entries(currentPrayerTimes).map(([n, t]) => `
+                    <div class="bg-slate-900 border border-slate-700 p-1.5 rounded-lg shadow-inner">
+                        <div class="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">${n}</div>
+                        <div class="text-[11px] font-black text-emerald-400">${t}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="col-span-5 text-[9px] text-red-400 italic">Jadwal sholat gagal dimuat.</div>`;
+            }
+        }
+
+        /**
+         * ==========================================
+         * DATABASE KATA-KATA (KUTIPAN MOTIVASI)
+         * ==========================================
+         */
+        const quotes = [
+            "Sesungguhnya bersama kesulitan ada kemudahan. (QS. Al-Insyirah: 6)", "Sebaik-baik manusia adalah yang paling bermanfaat bagi orang lain.", "Shalatlah tepat pada waktunya, karena itu adalah amalan paling utama.", "Barangsiapa menempuh jalan untuk mencari ilmu, Allah mudahkan jalannya ke surga.", "Senyummu di hadapan saudaramu adalah sedekah.", "Tangan di atas lebih baik daripada tangan di bawah.", "Allah tidak membebani seseorang melainkan sesuai kesanggupannya.", "Kejujuran membawa ketenangan, kebohongan membawa keraguan.", "Cintailah saudaramu seperti mencintai dirimu sendiri.", "Malu adalah bagian dari iman.",
+            "Dunia ini adalah perhiasan, dan sebaik-baik perhiasan adalah wanita shalihah.", "Katakanlah yang benar walau itu pahit.", "Ridha Allah terletak pada ridha kedua orang tua.", "Kebersihan adalah sebagian dari iman.", "Bersemangatlah mengejar apa yang bermanfaat bagimu.", "Cukuplah kematian sebagai pemberi nasihat.", "Harta tidak akan berkurang karena sedekah.", "Barangsiapa beriman kepada Allah dan hari akhir, berkatalah baik atau diam.", "Janganlah kamu marah, maka bagimu surga.", "Sesungguhnya Allah menyukai orang-orang yang sabar.",
+            "OXZAMEDIA: Solusi desain dan cetak Anda.", "Kualitas adalah prioritas utama kami.", "Kepuasan pelanggan adalah kebahagiaan kami.", "Melayani dengan hati dan profesionalitas.", "Cepat, tepat, dan berkualitas."
+        ];
+
+        /**
+         * ==========================================
+         * LOGIKA INVOICE (FITUR UTAMA)
+         * ==========================================
+         */
+        function formatIDR(val) { return "Rp " + new Intl.NumberFormat('id-ID').format(val); }
+        function addItem() { items.push({ name: '', qty: 0, price: 0 }); renderEditor(); sync(); }
+        function removeItem(i) { if(items.length > 1) { items.splice(i, 1); renderEditor(); sync(); } }
+        function updateItem(i, f, v) { items[i][f] = (f === 'qty' || f === 'price') ? parseFloat(v) || 0 : v; sync(); }
+
+        function renderEditor() {
+            const container = document.getElementById('editor-items');
+            container.innerHTML = '';
+            items.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = "flex gap-2 items-center bg-slate-900/50 p-2 rounded border border-slate-700";
+                div.innerHTML = `
+                    <input type="text" placeholder="Nama Pesanan" value="${item.name}" oninput="updateItem(${i}, 'name', this.value)" class="flex-1 bg-slate-800 text-white p-2 rounded text-[11px] outline-none">
+                    <input type="number" placeholder="Harga" value="${item.price || ''}" oninput="updateItem(${i}, 'price', this.value)" class="w-24 bg-slate-800 text-white p-2 rounded text-[11px] text-right outline-none">
+                    <input type="number" placeholder="Qty" value="${item.qty || ''}" oninput="updateItem(${i}, 'qty', this.value)" class="w-16 bg-slate-800 text-white p-2 rounded text-[11px] text-center outline-none">
+                    <button onclick="removeItem(${i})" class="text-red-500 px-2 font-bold">×</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function sync() {
+            const manualID = document.getElementById('in-invoice-id').value.trim();
+            const currentID = manualID ? manualID : autoInvoiceNo;
+            document.getElementById('out-no').innerText = "#" + currentID;
+            const nama = document.getElementById('in-nama').value || '---';
+            const telp = document.getElementById('in-telp').value || '---';
+            const designer = document.getElementById('in-designer').value || '---';
+            const bayar = parseFloat(document.getElementById('in-bayar').value) || 0;
+            const diskonPersen = parseFloat(document.getElementById('in-diskon').value) || 0;
+            
+            document.getElementById('out-nama').innerText = nama;
+            document.getElementById('out-telp').innerText = telp;
+            document.getElementById('out-designer-top').innerText = designer;
+            
+            const tbody = document.getElementById('out-items');
+            tbody.innerHTML = '';
+            let subtotal = 0;
+            
+            items.forEach((it, i) => {
+                const total = it.qty * it.price;
+                subtotal += total;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center; font-weight: 800; color: #64748b;">${i + 1}</td>
+                    <td style="font-weight: 700; text-transform: uppercase; color: #1e293b;">${it.name || 'BELUM DIISI'}</td>
+                    <td style="text-align: right; color: #475569;">${formatIDR(it.price)}</td>
+                    <td style="text-align: center; font-weight: 800; color: #1e293b;">${it.qty}</td>
+                    <td style="text-align: right; font-weight: 900; color: #0f172a;">${formatIDR(total)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            const diskonRupiah = (subtotal * diskonPersen) / 100;
+            const rowDiskon = document.getElementById('row-diskon');
+            if (diskonPersen > 0) {
+                rowDiskon.classList.remove('hidden');
+                document.getElementById('label-diskon').innerText = `Potongan Diskon (${diskonPersen}%)`;
+                document.getElementById('out-diskon-val').innerText = "- " + formatIDR(diskonRupiah);
+            } else { rowDiskon.classList.add('hidden'); }
+            
+            const grandTotal = subtotal - diskonRupiah;
+            const sisa = grandTotal - bayar;
+            
+            const pArea = document.getElementById('print-area');
+            pArea.classList.remove('is-lunas', 'is-belum');
+            if(subtotal > 0) { if(sisa <= 0) pArea.classList.add('is-lunas'); else pArea.classList.add('is-belum'); }
+            
+            document.getElementById('out-subtotal').innerText = formatIDR(subtotal);
+            document.getElementById('out-total').innerText = formatIDR(grandTotal > 0 ? grandTotal : 0);
+            document.getElementById('out-bayar-val').innerText = formatIDR(bayar);
+            document.getElementById('out-sisa').innerText = formatIDR(sisa > 0 ? sisa : 0);
+            
+            // Generate QR Code untuk Verifikasi
+            const qrData = `OXZA-INV:${currentID}|PEL:${nama}|TOT:${grandTotal.toFixed(0)}`;
+            document.getElementById('out-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}`;
+            
+            updateWAText(currentID, nama, grandTotal, bayar, sisa);
+        }
+
+        function updateWAText(id, nama, total, bayar, sisa) {
+            const dp50 = total * 0.5;
+            let itemLines = "";
+            items.forEach((it, i) => { if(it.name) itemLines += `${i+1}. ${it.name} (${it.qty}x)\n`; });
+            let txt = `*INVOICE OXZAMEDIA* #${id}\nPelanggan: *${nama.toUpperCase()}*\n\n*Rincian Pesanan:*\n${itemLines}\n*Grand Total:* ${formatIDR(total)}\n*Telah Dibayar:* ${formatIDR(bayar)}\n*Sisa Tagihan:* ${formatIDR(sisa)}\n------------------------------------------\nsilahkan transfer sebesar *TOTAL ${formatIDR(total)} ,-* atau *DP 50% ${formatIDR(dp50)}*\nke salah satu rekening dibawah ini:\nSetelah Pesanan selesai akan kami kirimkan photo dan video baru pelunasan\n\n⚠ *Kode Bank = 002 (BRI)* ⚠\nBank BRI\n✅ *Bank BRI 116601000249568*\n*CV. OXZAMEDIA CREATIVE*\n\n⚠ *Kode Bank = 014 (BCA)* ⚠\nBank BCA\n✅ *No Rekening: 2450110887*\n*a.n NIKEN SRI LESTARI*\n------------------------------------------\n_Terima kasih telah mempercayakan kebutuhan desain & cetak Anda kepada OXZAMEDIA._`;
+            document.getElementById('wa-preview').value = txt;
+        }
+
+        function copyWA() {
+            const textArea = document.getElementById('wa-preview');
+            textArea.select();
+            document.execCommand('copy');
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "✅ TERSALIN!";
+            btn.classList.replace('bg-emerald-600', 'bg-blue-600');
+            setTimeout(() => { btn.innerHTML = originalText; btn.classList.replace('bg-blue-600', 'bg-emerald-600'); }, 2000);
+        }
+
+        function saveData() {
+            const invoiceID = document.getElementById('out-no').innerText.replace('#', '');
+            const clientName = document.getElementById('in-nama').value || 'PELANGGAN';
+            const fileName = `OXZA_INV_${invoiceID}_${clientName.replace(/\s+/g, '_')}.html`;
+            const state = {
+                invoiceID: document.getElementById('in-invoice-id').value,
+                autoID: autoInvoiceNo,
+                nama: document.getElementById('in-nama').value,
+                telp: document.getElementById('in-telp').value,
+                designer: document.getElementById('in-designer').value,
+                diskon: document.getElementById('in-diskon').value,
+                bayar: document.getElementById('in-bayar').value,
+                items: items,
+                tgl: document.getElementById('out-tgl').innerText
+            };
+            document.getElementById('saved-data-state').textContent = JSON.stringify(state);
+            const fullDoc = document.documentElement.outerHTML;
+            const blob = new Blob([fullDoc], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.click();
+        }
+
+        /**
+         * ==========================================
+         * INISIALISASI SAAT HALAMAN DIBUKA
+         * ==========================================
+         */
+        window.onload = async function() {
+            // Jalankan Jam Realtime
+            setInterval(updateClock, 1000);
+            updateClock();
+            
+            // Ambil Jadwal Sholat
+            getPrayerTimes();
+            setInterval(getPrayerTimes, 3600000); // Update setiap jam
+            
+            // Tarik Berita Asli (Google News)
+            await fetchAllLiveNews();
+            setInterval(fetchAllLiveNews, 600000); // Refresh berita asli setiap 10 menit
+
+            // Muat Data Tersimpan (jika ada)
+            const savedDataText = document.getElementById('saved-data-state').textContent;
+            if (savedDataText) {
+                const data = JSON.parse(savedDataText);
+                autoInvoiceNo = data.autoID;
+                document.getElementById('in-invoice-id').value = data.invoiceID;
+                document.getElementById('in-nama').value = data.nama;
+                document.getElementById('in-telp').value = data.telp;
+                document.getElementById('in-designer').value = data.designer;
+                document.getElementById('in-diskon').value = data.diskon;
+                document.getElementById('in-bayar').value = data.bayar;
+                items = data.items;
+                document.getElementById('out-tgl').innerText = data.tgl;
+            } else {
+                autoInvoiceNo = "OXZA-" + Math.floor(100000 + Math.random() * 900000);
+                const d = new Date();
+                document.getElementById('out-tgl').innerText = d.toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}).toUpperCase();
+            }
+            renderEditor();
+            sync();
+        }
+    </script>
+</body>
+</html>
