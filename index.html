@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -136,9 +136,9 @@
                 <!-- Preview WhatsApp -->
                 <div class="border-t border-slate-700 pt-4">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest">WhatsApp Billing Generator</span>
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest">INTEGRATED DATA</span>
                         <button onclick="copyWA()" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-2">
-                            <span>📋 SALIN TEKS WA</span>
+                            <span>📋 COPY UNTUK PENGAJUAN</span>
                         </button>
                     </div>
                     <textarea id="wa-preview" readonly class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-[11px] font-mono text-emerald-100 h-24 outline-none resize-none"></textarea>
@@ -328,7 +328,7 @@
             // Tambahkan juga kutipan motivasi di sela-sela berita (ambil 5 kutipan acak)
             for(let i=0; i<5; i++) {
                 const q = quotes[Math.floor(Math.random() * quotes.length)];
-                fullText += `<span class="news-tag" style="background:#059669">INFO</span> <span class="news-item">${q}</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`;
+                fullText += `<span class="news-tag" style="background:#059669">KUTIPAN</span> <span class="news-item">${q}</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`;
             }
 
             content.innerHTML = fullText;
